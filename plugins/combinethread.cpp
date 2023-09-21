@@ -84,7 +84,7 @@ command_result df_combinethread (color_ostream& out, std::vector<std::string>& p
     // combine any partially-used threads of same material in containers in stockpiles
     for (std::size_t i = 0; i < world->buildings.other.STOCKPILE.size(); ++i) {
         df::building_stockpilest* sp = world->buildings.other.STOCKPILE[i];
-        
+
         auto has_allowed = [](const std::vector<char>& vec) {
             return std::find_if(vec.begin(), vec.end(), [](const char&c){
                 return static_cast<bool>(c);
@@ -92,7 +92,7 @@ command_result df_combinethread (color_ostream& out, std::vector<std::string>& p
         };
 
         if (!has_allowed(sp->settings.cloth.thread_plant) &&
-            !has_allowed(sp->settings.cloth.thread_silk) && 
+            !has_allowed(sp->settings.cloth.thread_silk) &&
             !has_allowed(sp->settings.cloth.thread_yarn) &&
             !has_allowed(sp->settings.cloth.thread_metal))
         {
@@ -106,7 +106,7 @@ command_result df_combinethread (color_ostream& out, std::vector<std::string>& p
             if (item->isDyed()) return;
             // skip full spools of thread
             if (item->dimension == thread_full_dim) return;
-            
+
             // skip on following flags
             if (item->flags.bits.in_job |
                 item->flags.bits.on_fire | // !!THREAD!!
