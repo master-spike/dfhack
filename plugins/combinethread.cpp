@@ -12,7 +12,6 @@
 #include "Export.h"
 #include "PluginManager.h"
 #include "modules/Items.h"
-#include "modules/Units.h"
 #include "modules/Buildings.h"
 #include "DataDefs.h"
 #include "df/world.h"
@@ -55,7 +54,7 @@ void combine_threads_in_vector(std::vector<df::item_threadst*>& vec, int& out_st
         int32_t right_dim = (*itr)->dimension;
         bool filled_up = right_dim + left_dim >= thread_full_dim;
         int32_t amount_to_combine = filled_up ? thread_full_dim - left_dim : right_dim;
-        
+
         (*itl)->dimension = left_dim + amount_to_combine;
         (*itr)->dimension = right_dim - amount_to_combine;
         if (filled_up){
@@ -79,8 +78,8 @@ command_result df_combinethread (color_ostream& out, std::vector<std::string>& p
 
     if (!quiet) out.print("COMBINING THREADS!\n");
 
-    int filled_count=0;
-    int emptied_count=0;
+    int filled_count = 0;
+    int emptied_count = 0;
 
     // combine any partially-used threads of same material in containers in stockpiles
     for (std::size_t i = 0; i < world->buildings.other.STOCKPILE.size(); ++i) {
@@ -99,34 +98,36 @@ command_result df_combinethread (color_ostream& out, std::vector<std::string>& p
         {
             continue;
         }
+
+
         std::map<std::tuple<int16_t, int32_t>, std::vector<df::item_threadst*>> threads_by_mat;
 
-        auto insert_in_map = [&] (df::item_threadst* item, std::map<std::tuple<int16_t, int32_t>, std::vector<df::item_threadst*>>& my_map) {
+        auto insert_in_map = [&] (df::item_threadst* item) {
             if (item->isDyed()) return;
             // skip full spools of thread
             if (item->dimension == thread_full_dim) return;
             
             // skip on following flags
             if (item->flags.bits.in_job |
-                item->flags.bits.on_fire |
-                item->flags.bits.melt |
+                item->flags.bits.on_fire | // !!THREAD!!
+                item->flags.bits.melt | // candy floss
                 item->flags.bits.garbage_collect |
                 item->flags.bits.dump |
                 item->flags.bits.forbid |
                 item->flags.bits.hostile |
                 item->flags.bits.trader |
-                item->flags.bits.artifact |
+                item->flags.bits.artifact | // just in case it's an artefact spool of thread, because who knows what people are doing???
                 item->flags.bits.artifact_mood |
                 item->flags.bits.spider_web) return;
 
             auto key = std::make_tuple(item->getMaterial(), item->getMaterialIndex());
-            auto map_it = my_map.find(key);
-            if (map_it == my_map.end()) {
-                map_it = my_map.emplace_hint(my_map.begin(), key, std::vector<df::item_threadst*>());
+            auto map_it = threads_by_mat.find(key);
+            if (map_it == threads_by_mat.end()) {
+                map_it = threads_by_mat.emplace_hint(threads_by_mat.begin(), key, std::vector<df::item_threadst*>());
             }
             map_it->second.push_back(item);
-            if (!quiet) out.print("Stockpile %d, Material(%d,%d): thread id=%d added to combine list\n",
-                sp->id, item->getMaterial(), item->getMaterialIndex(), item->id);
+            if (!quiet) out.print("Stockpile #%d, Material(%d,%d): thread (item id=%d, dimension=%d) added to combine list\n",
+                sp->stockpile_number, item->getMaterial(), item->getMaterialIndex(), item->id, item->dimension);
 
         };
 
@@ -134,21 +135,23 @@ command_result df_combinethread (color_ostream& out, std::vector<std::string>& p
         Buildings::getStockpileContents(sp, &sp_contents);
 
         for (auto sp_item : sp_contents) {
-            
+
             df::item_threadst* sp_thread = virtual_cast<df::item_threadst>(sp_item);
 
             if (sp_thread) {
-                insert_in_map(sp_thread, threads_by_mat);
+                insert_in_map(sp_thread);
             }
 
             else {
+
+                // if it isn't a thread, it could be a container of thread!
 
                 std::vector<df::item*> contained_items;
                 Items::getContainedItems(sp_item, &contained_items);
 
                 for (df::item* item : contained_items) {
                     df::item_threadst* item_thread = virtual_cast<df::item_threadst>(item);
-                    if (item_thread) insert_in_map(item_thread, threads_by_mat);
+                    if (item_thread) insert_in_map(item_thread);
                 }
 
             }
@@ -160,7 +163,8 @@ command_result df_combinethread (color_ostream& out, std::vector<std::string>& p
 
     }
 
-    if (filled_count || emptied_count) out.print("[combinethreads]: filled up %d spools of thread, emptied %d spools of thread\n", filled_count, emptied_count);
+    if (filled_count || emptied_count)
+        out.print("combine thread filled up %d spools of thread, emptied %d spools of thread\n", filled_count, emptied_count);
 
     return CR_OK;
 }
